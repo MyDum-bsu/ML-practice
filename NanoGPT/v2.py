@@ -7,7 +7,7 @@ batch_size = 32
 block_size = 8
 max_iters = 10000
 eval_interval = 500
-learning_rate = 1e-2
+learning_rate = 1e-3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 300
 n_embd = 32
@@ -60,11 +60,36 @@ def estimate_loss():
     return out
 
 
+class Head(nn.Module):
+    """ one head of self-attention """
+
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+
+    def forward(self, x):
+        B, T, C = x.shape
+        k = self.key(x)
+        q = self.query(x)
+        wei = q @ k.transpose(-2, -1) * C**-0.5 # (B, T, T)
+        wei = wei.masked_fill(self.tril[:T,:T] == 0, float('-inf'))
+        wei = F.softmax(wei, dim=-1)
+        
+        v = self.value(x)
+        out = wei @ v
+        return out
+
+
+
 class Bigram(nn.Module):
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        self.sa_head = Head(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, targets=None):
@@ -72,6 +97,7 @@ class Bigram(nn.Module):
         tok_emb = self.token_embedding_table(idx) # (B, T, C)
         pos_emb = self.position_embedding_table(torch.arange(T, device=device)) # (T, C)
         x = pos_emb + tok_emb
+        x = self.sa_head(x)
         logits = self.lm_head(x) # (B, T, Vocab_size)
 
         if targets is None:
@@ -86,13 +112,16 @@ class Bigram(nn.Module):
     
     def generate(self, idx, nums):
         for _ in range(nums):
-            logits, _ = self(idx)
+            idx_cond = idx[:, -block_size:]
+            logits, _ = self(idx_cond)
             logits = logits[:, -1, :]
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
     
+
+
 model = Bigram()
 m = model.to(device)
 
