@@ -20,7 +20,7 @@ model = None
 
 torch.manual_seed(1337)
 
-with open('/home/mydum/Desktop/ML/pracice/NanoGPT/input.txt', 'r', encoding='utf-8') as f:
+with open('input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 #unique characters
