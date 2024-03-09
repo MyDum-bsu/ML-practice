@@ -1,13 +1,9 @@
 
 from dotenv import find_dotenv, load_dotenv
-from sympy import N
 from transformers import pipeline
-from transformers import VitsModel, AutoTokenizer
 import os
 import requests
-import torch
 import streamlit as st
-
 
 load_dotenv(find_dotenv())
 HUGGINGFACEHUB_API_TOKEN = os.getenv('HUGGINGFACEHUB_API_TOKEN')
@@ -44,12 +40,6 @@ def text2speech(message):
     response = requests.post(API_URL, headers=headers, json=payloads)
     with open('audio.flac', 'wb') as f:
         f.write(response.content)
-
-
-# winter = '/home/mydum/Desktop/ML/pracice/ 🤗HiggingFace/AudioImage/winter.jpg'
-# scenario = img2text(winter)
-# story = generate_story(scenario)
-# text2speech(story)
 
 def main():
     st.set_page_config(page_title='img to audio story', page_icon='🤗')
